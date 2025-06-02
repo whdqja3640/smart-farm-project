@@ -3,6 +3,7 @@ from utils.database import get_db_connection, get_dict_cursor_connection
 import os
 import json
 from datetime import datetime
+from yolo_predictor import run_inference
 
 product_bp = Blueprint('product', __name__, url_prefix='/product')
 
@@ -128,24 +129,67 @@ def upload_sensor():
     temperature = data.get('temperature')
     humidity = data.get('humidity')
     timestamp = data.get('timestamp', datetime.now().isoformat())
+    iot_id = data.get('iot_id')
+    gh_id = data.get('gh_id')
 
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"status": "error", "message": "DB 연결 실패"}), 500
+    print(f"[DEBUG] 수신 데이터: temp={temperature}, hum={humidity}, iot_id={iot_id}, gh_id={gh_id}")
+
 
     try:
+        conn = get_db_connection()
         with conn.cursor() as cursor:
             sql = """
-                INSERT INTO sensor_log (temperature, humidity, timestamp)
-                VALUES (%s, %s, %s)
+                INSERT INTO sensor_log (temperature, humidity, timestamp, iot_id, gh_id)
+                VALUES (%s, %s, %s,%s,%s)
             """
-            cursor.execute(sql, (temperature, humidity, timestamp))
-            conn.commit()
-            return jsonify({"status": "success"}), 200
+            cursor.execute(sql, (temperature, humidity, timestamp,iot_id,gh_id))
+            conn.commit()  
+        return jsonify({"status": "success"}), 200
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
-    finally:
-        conn.close()
+
+
+@product_bp.route("/last-sensor", methods=["GET"])
+def get_last_sensor():
+    try:
+        # 최신 센서 데이터 가져오기
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT temperature, humidity, timestamp FROM sensor_log ORDER BY timestamp DESC LIMIT 1")
+            row = cursor.fetchone()
+        
+        # 센서 데이터 준비
+        if row:
+            temperature, humidity, timestamp = row
+        else:
+            temperature, humidity, timestamp = None, None, None
+
+        # 모델 추론 수행 (last.jpg에 대해)
+        image_path = "test_images/last.jpg"  # 실제 추론 대상 이미지 경로
+        class_counts, _ = run_inference(image_path)
+
+        # 결과에서 썩은 것 / 건강한 것 추출
+        rotten_count = class_counts.get("straw_rotten", 0)
+        healthy_count = class_counts.get("straw_healthy", 0)
+
+        # JSON 응답 구성
+        response = {
+            "temperature": temperature,
+            "humidity": humidity,
+            "timestamp": timestamp.isoformat() if timestamp else None,
+            "image_url": "/static/images/last.jpg",
+            "rotten_count": rotten_count,
+            "healthy_count": healthy_count,
+            "predicted_image_url": "/static/images/last_pred.jpg"
+        }
+
+        return jsonify(response)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 #구독 취소
 @product_bp.route('/unsubscribe/<int:iot_id>', methods=['DELETE'])

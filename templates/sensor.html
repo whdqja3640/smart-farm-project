@@ -1,3 +1,81 @@
-  <title>센서 데이터</title>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>센서 데이터</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f6f6f6;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            position: relative;
+        }
+        main {
+            max-width: 800px;
+            margin: 2rem auto;
+            background: white;
+            padding: 2rem;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #34495e;
+            margin-bottom: 1.5rem;
+        }
+        .sensor-image {
+            width: 100%;
+            max-width: 600px;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+        }
+        .sensor-data p {
+            font-size: 1.2rem;
+            margin: 0.5rem 0;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🌡️ 센서 데이터 대시보드</h1>
+    </header>
+    <main>
+        <h2>📷 최근 이미지 및 센서 정보</h2>
+        <img id="sensorImage" class="sensor-image" src="/static/images/last.jpg" alt="최근 이미지" />
+        <div class="sensor-data">
+            <p>🌡️ 온도: <span id="temperature"></span></p>
+            <p>💧 습도: <span id="humidity"></span></p>
+            <p>⏱️ 측정 시간: <span id="timestamp"></span></p>
+            <hr>
+            <p>🟢 건강한 개체 수: <strong id="healthy-count"></strong></p>
+            <p>🔴 썩은 개체 수: <strong id="rotten-count"></strong></p>
+            <img id="last-image" src="" alt="마지막 이미지" style="max-width: 300px;">
+        </div>
+    </main>
 
-  <div id="root"></div>  <!-- React 컴포넌트가 마운트될 위치 -->
+    <script>
+        fetch("/product/last-sensor")
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("temperature").textContent = `${data.temperature} °C`;
+                document.getElementById("humidity").textContent = `${data.humidity} %`;
+                document.getElementById("timestamp").textContent = data.timestamp;
+
+                document.getElementById("rotten-count").textContent = data.rotten_count;
+                document.getElementById("healthy-count").textContent = data.healthy_count;
+
+                document.getElementById("sensorImage").src = data.image_url;
+                document.getElementById("last-image").src = data.predicted_image_url;
+            })
+            .catch(err => {
+                alert("센서 데이터를 불러오는 중 오류가 발생했습니다.");
+                console.error(err);
+            });
+    </script>
+</body>
+</html>
