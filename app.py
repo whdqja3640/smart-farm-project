@@ -118,5 +118,50 @@ def sensor_page():
     return render_template("sensor.html")
 
 
+#GPS 데이터 수신
+@app.route('/upload-gps', methods=['POST'])
+def upload_gps():
+    data = request.get_json()
+    device_id = data.get('device_id')
+    lat = data.get('lat')
+    lon = data.get('lon')
+
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            if not all([device_id, lat, lon]):
+                return jsonify({"status": "fail", "message": "invalid data"}), 400
+
+            sql = """
+                INSERT INTO gps_data (device_id, latitude, longitude)
+                VALUES (%s, %s, %s)
+            """
+            cursor.execute(sql, (device_id, lat, lon))
+            conn.commit()
+        return jsonify({"status": "ok"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "meesage": str(e)}), 500
+
+
+#지도에 마커 표시
+@app.route('/get-latest', methods=['GET'])
+def get_latest():
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT latitude, longitude FROM gps_data 
+                ORDER BY received_at DESC LIMIT 1
+            """)
+            row = cursor.fetchone()
+            if row:
+                return jsonify({'lat': row[0], 'lon': row[1]})
+            else:
+                return jsonify({"message": "No data"}), 404
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5001, debug=True)

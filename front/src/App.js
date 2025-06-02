@@ -22,6 +22,7 @@ import { AuthContext } from './contexts/AuthContext';
 import CameraSetting from './CameraSetting';
 import FarmDetail from './FarmDetail';
 import API_BASE_URL from './config';
+import MapView from './MapView'
 
 function Navigation() {
   const navigate = useNavigate();
@@ -168,6 +169,8 @@ function App() {
             <Route path="/iot-setting" element={isLoggedIn ? <CameraSetting /> : <Navigate to="/login" />} />
             <Route path="/iot-setting/:deviceId" element={isLoggedIn ? <CameraSetting /> : <Navigate to="/login" />} />
             <Route path="/farm-card-tail/:farmId" element={isLoggedIn ? <FarmDetail /> : <Navigate to="/login" />} />
+            <Route path="/map" element={ <MapView /> } />
+
           </Routes>
         </div>
       </Router>
