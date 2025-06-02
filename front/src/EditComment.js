@@ -1,30 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import API_BASE_URL from './config';
 
-function EditComment() {
+function EditPost() {
+  const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [postId, setPostId] = useState(null);
-  const { commentId } = useParams();
+  const { postId } = useParams();
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchComment();
-  }, [commentId]);
+    fetchPost();
+  }, [postId]);
 
-  const fetchComment = async () => {
+  const fetchPost = async () => {
     try {
-      const response = await fetch(`https://mature-grub-climbing.ngrok-free.app/api/comments/${commentId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/posts/${postId}`, {
         credentials: 'include'
       });
       if (response.ok) {
         const data = await response.json();
-        setContent(data.content);
-        setPostId(data.post_id);
+        setTitle(data.post.title);
+        setContent(data.post.content);
       } else {
         navigate('/community');
       }
     } catch (error) {
-      console.error('댓글 로딩 실패:', error);
+      console.error('게시글 로딩 실패:', error);
       navigate('/community');
     }
   };
@@ -33,31 +34,46 @@ function EditComment() {
     e.preventDefault();
     
     try {
-      const response = await fetch(`https://mature-grub-climbing.ngrok-free.app/api/comments/${commentId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/posts/${postId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify({ content })
+        body: JSON.stringify({
+          title,
+          content
+        })
       });
 
       if (response.ok) {
         navigate(`/community/post/${postId}`);
       } else {
         const data = await response.json();
-        alert(data.message || '댓글 수정에 실패했습니다.');
+        alert(data.message || '게시글 수정에 실패했습니다.');
       }
     } catch (error) {
-      console.error('댓글 수정 실패:', error);
-      alert('댓글 수정에 실패했습니다.');
+      console.error('게시글 수정 실패:', error);
+      alert('게시글 수정에 실패했습니다.');
     }
   };
 
   return (
     <div className="write-post-container">
-      <h2>댓글 수정</h2>
+      <h2>게시글 수정</h2>
       <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label htmlFor="title">제목</label>
+          <input
+            type="text"
+            id="title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+            placeholder="제목을 입력하세요"
+          />
+        </div>
+
         <div className="form-group">
           <label htmlFor="content">내용</label>
           <textarea
@@ -84,4 +100,4 @@ function EditComment() {
   );
 }
 
-export default EditComment; 
+export default EditPost; 

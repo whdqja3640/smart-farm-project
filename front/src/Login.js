@@ -1,7 +1,8 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from './contexts/AuthContext';
 import './Login.css';
+import API_BASE_URL from './config';
 
 function Login() {
   const [id, setId] = useState('');
@@ -11,13 +12,33 @@ function Login() {
   const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useContext(AuthContext);
 
+  useEffect(() => {
+    // 이미 로그인된 상태라면 메인 페이지로 리다이렉트
+    const checkLoginStatus = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/check_login`, {
+          credentials: 'include'
+        });
+        const data = await response.json();
+        
+        if (data.logged_in) {
+          navigate('/');
+        }
+      } catch (error) {
+        console.error('로그인 상태 확인 실패:', error);
+      }
+    };
+
+    checkLoginStatus();
+  }, [navigate]);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
     try {
-      const response = await fetch('https://mature-grub-climbing.ngrok-free.app/login', {
+      const response = await fetch(`${API_BASE_URL}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -35,7 +56,7 @@ function Login() {
         setIsLoggedIn(true);
 
         if (data.admin) {
-          window.location.href = 'https://mature-grub-climbing.ngrok-free.app/admin.html';  // 관리자일 경우 정적 페이지 이동
+          window.location.href = `${API_BASE_URL}/admin.html`;  // 관리자일 경우 정적 페이지 이동
         } else {
           navigate('/');  // 일반 유저는 홈으로 이동
         }
@@ -52,7 +73,7 @@ function Login() {
   };
 
   const handleKakaoLogin = () => {
-    window.location.href = 'https://mature-grub-climbing.ngrok-free.app/auth/kakao';
+    window.location.href = `${API_BASE_URL}/auth/kakao`;
   };
 
   return (

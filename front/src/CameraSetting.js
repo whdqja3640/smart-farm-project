@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import './CameraSetting.css';
+import API_BASE_URL from './config';
 
 function CameraSetting() {
   const [interval, setInterval] = useState(60);
@@ -19,7 +20,7 @@ function CameraSetting() {
 
   useEffect(() => {
     // 농장 목록 가져오기
-    fetch("https://mature-grub-climbing.ngrok-free.app/api/farms", {
+    fetch(`${API_BASE_URL}/api/farms`, {
       credentials: "include"
     })
       .then(res => res.json())
@@ -31,7 +32,7 @@ function CameraSetting() {
       .catch(err => console.error("농장 목록 불러오기 실패:", err));
 
     // 전체 비닐하우스 목록 가져오기
-    fetch("https://mature-grub-climbing.ngrok-free.app/product/my_greenhouses", {
+    fetch(`${API_BASE_URL}/product/my_greenhouses`, {
       credentials: "include"
     })
       .then(res => res.json())
@@ -44,10 +45,15 @@ function CameraSetting() {
 
     // 수정 모드인 경우 기존 데이터 가져오기
     if (deviceId) {
-      fetch(`https://mature-grub-climbing.ngrok-free.app/product/my_devices/${deviceId}`, {
+      fetch(`${API_BASE_URL}/product/my_devices/${deviceId}`, {
         credentials: "include"
       })
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) {
+            throw new Error('기기 정보를 불러올 수 없습니다');
+          }
+          return res.json();
+        })
         .then(data => {
           if (data.device) {
             setIotName(data.device.iot_name);
@@ -58,9 +64,15 @@ function CameraSetting() {
             setEnabled(data.device.camera_on);
             // device에 farm_id가 있다면 세팅
             if (data.device.farm_id) setFarmId(data.device.farm_id);
+          } else {
+            throw new Error('기기 정보가 없습니다');
           }
         })
-        .catch(err => console.error("기기 정보 불러오기 실패:", err));
+        .catch(err => {
+          console.error("기기 정보 불러오기 실패:", err);
+          setMessage(err.message);
+          setTimeout(() => navigate('/products'), 1500);
+        });
     }
   }, [deviceId]);
 
@@ -93,8 +105,8 @@ function CameraSetting() {
 
     try {
       const url = deviceId 
-        ? `https://mature-grub-climbing.ngrok-free.app/product/update/${deviceId}`
-        : "https://mature-grub-climbing.ngrok-free.app/product/subscribe";
+        ? `${API_BASE_URL}/product/update/${deviceId}`
+        : `${API_BASE_URL}/product/subscribe`;
       
       const res = await fetch(url, {
         method: "POST",

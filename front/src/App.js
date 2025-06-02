@@ -21,7 +21,7 @@ import logo from './leaves-growing-from-ground-green-glyph-style_78370-6720.png'
 import { AuthContext } from './contexts/AuthContext';
 import CameraSetting from './CameraSetting';
 import FarmDetail from './FarmDetail';
-import SensorPage from './SensorPage';
+import API_BASE_URL from './config';
 
 function Navigation() {
   const navigate = useNavigate();
@@ -33,7 +33,7 @@ function Navigation() {
 
   const handleLogout = async () => {
     try {
-      const response = await fetch('https://mature-grub-climbing.ngrok-free.app/logout', {
+      const response = await fetch(`${API_BASE_URL}/logout`, {
         method: 'POST',
         credentials: 'include'
       });
@@ -92,11 +92,12 @@ function Navigation() {
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const checkLoginStatus = async () => {
       try {
-        const response = await fetch('https://mature-grub-climbing.ngrok-free.app/check_login', {
+        const response = await fetch(`${API_BASE_URL}/check_login`, {
           credentials: 'include'
         });
         const data = await response.json();
@@ -115,11 +116,32 @@ function App() {
         setIsLoggedIn(false);
         sessionStorage.removeItem('isLoggedIn');
         sessionStorage.removeItem('userId');
+      } finally {
+        setIsLoading(false);
       }
     };
 
     checkLoginStatus();
   }, []);
+
+  if (isLoading) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        backgroundColor: '#f7f7f7'
+      }}>
+        <div style={{
+          textAlign: 'center',
+          color: '#666'
+        }}>
+          <div>로딩 중...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AuthContext.Provider value={[isLoggedIn, setIsLoggedIn]}>
@@ -143,9 +165,9 @@ function App() {
             <Route path="/encyclopedia/insect/:insectId" element={isLoggedIn ? <InsectDetail /> : <Navigate to="/login" />} />
             <Route path="/encyclopedia/enemy/:enemyId" element={isLoggedIn ? <EnemyDetail /> : <Navigate to="/login" />} />
             <Route path="/statistics" element={isLoggedIn ? <Statistics /> : <Navigate to="/login" />} />
-            <Route path="/iot-setting" element={<CameraSetting />} />
+            <Route path="/iot-setting" element={isLoggedIn ? <CameraSetting /> : <Navigate to="/login" />} />
+            <Route path="/iot-setting/:deviceId" element={isLoggedIn ? <CameraSetting /> : <Navigate to="/login" />} />
             <Route path="/farm-card-tail/:farmId" element={isLoggedIn ? <FarmDetail /> : <Navigate to="/login" />} />
-            <Route path="/sensor" element={<SensorPage />} />
           </Routes>
         </div>
       </Router>

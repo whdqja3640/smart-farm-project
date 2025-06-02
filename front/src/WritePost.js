@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './WritePost.css';
+import API_BASE_URL from './config';
 
 function WritePost() {
   const [title, setTitle] = useState('');
@@ -11,7 +12,7 @@ function WritePost() {
     e.preventDefault();
     
     try {
-      const response = await fetch('https://mature-grub-climbing.ngrok-free.app/api/posts', {
+      const response = await fetch(`${API_BASE_URL}/api/posts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
