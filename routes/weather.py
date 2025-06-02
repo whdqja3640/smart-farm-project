@@ -2,7 +2,6 @@ from flask import Blueprint, jsonify, request
 from collections import defaultdict
 from datetime import datetime, timedelta
 import requests
-from flask_cors import CORS
 
 weather_bp = Blueprint('weather', __name__, url_prefix='/api/weather')
 
