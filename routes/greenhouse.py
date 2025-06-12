@@ -7,6 +7,72 @@ from utils.database import get_db_connection
 
 greenhouse_bp = Blueprint('greenhouse', __name__)
 
+# --------------------------
+# 그룹 생성 관련 유틸 함수
+# --------------------------
+def find_contiguous_segments(line):
+    segments = []
+    start = 0
+    val = line[0]
+    for i in range(1, len(line)):
+        if line[i] != val:
+            segments.append((start, i - 1, val))
+            start = i
+            val = line[i]
+    segments.append((start, len(line) - 1, val))
+    return segments
+
+def find_row_groups(grid):
+    groups = []
+    for row_idx, row in enumerate(grid):
+        segments = find_contiguous_segments(row)
+        for start, end, val in segments:
+            if end > start:
+                groups.append((row_idx, start, end, val))
+    return groups
+
+def find_col_groups(grid):
+    groups = []
+    for col_idx in range(len(grid[0])):
+        col = [row[col_idx] for row in grid]
+        segments = find_contiguous_segments(col)
+        for start, end, val in segments:
+            if end > start:
+                groups.append((start, col_idx, end, val))
+    return groups
+
+# ✅ 자동으로 수평 vs 수직 그룹 수 비교하여 하나만 저장
+
+def save_crop_groups(greenhouse_id, grid_data, conn):
+    cur = conn.cursor()
+    cur.execute("DELETE FROM crop_groups WHERE greenhouse_id = %s", (greenhouse_id,))
+
+    row_groups = find_row_groups(grid_data)
+    col_groups = find_col_groups(grid_data)
+
+    if len(row_groups) >= len(col_groups):
+        selected_groups = row_groups
+        is_horizontal = True
+    else:
+        selected_groups = col_groups
+        is_horizontal = False
+
+    for group in selected_groups:
+        if is_horizontal:
+            row_idx, start_col, end_col, value = group
+            cells = [[row_idx, col] for col in range(start_col, end_col + 1)]
+        else:
+            start_row, col_idx, end_row, value = group
+            cells = [[row, col_idx] for row in range(start_row, end_row + 1)]
+
+        cur.execute("""
+            INSERT INTO crop_groups (greenhouse_id, group_cells, crop_type, is_horizontal, is_read)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (greenhouse_id, json.dumps(cells), value, is_horizontal, False))
+
+# --------------------------
+# 비닐하우스 생성
+# --------------------------
 @greenhouse_bp.route('/create', methods=['POST'])
 def create_greenhouse():
     try:
@@ -36,6 +102,11 @@ def create_greenhouse():
             num_cols,
             json.dumps(grid_data)
         ))
+        greenhouse_id = cur.lastrowid
+
+        # ✅ 그룹 저장
+        save_crop_groups(greenhouse_id, grid_data, conn)
+
         conn.commit()
         conn.close()
 
@@ -71,6 +142,10 @@ def update_greenhouse(greenhouse_id):
             json.dumps(grid_data),
             greenhouse_id
         ))
+
+        # ✅ 업데이트 시에도 그룹 재생성
+        save_crop_groups(greenhouse_id, grid_data, conn)
+
         conn.commit()
         conn.close()
 
@@ -79,7 +154,7 @@ def update_greenhouse(greenhouse_id):
         print("❌ 업데이트 오류:", e)
         return jsonify({"message": "서버 오류 발생"}), 500
 
-@greenhouse_bp.route('/delete/<int:greenhouse_id>', methods=['DELETE'])
+@greenhouse_bp.route('/<int:greenhouse_id>', methods=['DELETE'])
 def delete_greenhouse(greenhouse_id):
     try:
         conn = get_db_connection()
@@ -159,3 +234,24 @@ def grid_generator():
                            num_rows=num_rows,
                            num_cols=num_cols,
                            grid_data=json.dumps(grid_data))
+
+@greenhouse_bp.route('/api/grid', methods=['GET'])
+def get_grid_data():
+    greenhouse_id = request.args.get('id')
+    if not greenhouse_id:
+        return jsonify({'error': 'greenhouse_id required'}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor(pymysql.cursors.DictCursor)
+    cur.execute("SELECT num_rows, num_cols, grid_data FROM greenhouses WHERE id = %s", (greenhouse_id,))
+    greenhouse = cur.fetchone()
+    conn.close()
+
+    if not greenhouse:
+        return jsonify({'error': '존재하지 않는 비닐하우스입니다.'}), 404
+
+    return jsonify({
+        'num_rows': greenhouse['num_rows'],
+        'num_cols': greenhouse['num_cols'],
+        'grid_data': json.loads(greenhouse['grid_data'])
+    })

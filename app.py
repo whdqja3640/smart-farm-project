@@ -13,6 +13,8 @@ from routes.product import product_bp
 from routes.crop import crop_bp
 from routes.chart import chart_bp
 from routes.greenhouse import greenhouse_bp
+from routes.group import group_bp
+from routes.notification import notification_bp
 from flask_cors import CORS
 
 def get_db_conn():
@@ -32,7 +34,7 @@ CORS(app, resources={r"/*": {"origins": [
 ]}}, supports_credentials=True)
 
 app.register_blueprint(user_bp)
-app.register_blueprint(farm_bp, url_prefix='/api/farms')
+app.register_blueprint(farm_bp)
 app.register_blueprint(post_bp)
 app.register_blueprint(crop_bp)
 app.register_blueprint(admin_bp)
@@ -40,6 +42,8 @@ app.register_blueprint(weather_bp)
 app.register_blueprint(product_bp)
 app.register_blueprint(chart_bp)
 app.register_blueprint(greenhouse_bp, url_prefix='/api/greenhouses')
+app.register_blueprint(group_bp)
+app.register_blueprint(notification_bp)
 
 def get_db_connection():
     try:
