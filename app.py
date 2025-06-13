@@ -1,56 +1,51 @@
 import pymysql
-import os
-from flask import Flask, render_template, request, session, jsonify
-from datetime import datetime
+from flask import Flask, request, session, jsonify, render_template
+from flask_cors import CORS
+from config import DB_CONFIG
 
+# 블루프린트 임포트
 from routes.user import user_bp
 from routes.admin import admin_bp
 from routes.farm import farm_bp
 from routes.weather import weather_bp
-from config import DB_CONFIG
 from routes.post import post_bp
 from routes.product import product_bp
 from routes.crop import crop_bp
 from routes.chart import chart_bp
-from routes.greenhouse import greenhouse_bp
-from routes.group import group_bp
+from routes.greenhouse import greenhouse_bp  # 새로 분리한 블루프린트
 from routes.notification import notification_bp
-from flask_cors import CORS
+from routes.sensor import sensor_bp
 
-def get_db_conn():
-    return pymysql.connect(**DB_CONFIG)
-conn = get_db_conn()
-cur = conn.cursor()
-UPLOAD_FOLDER = 'static/uploads/farms'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-app = Flask(__name__, static_url_path='/static', static_folder='static')
-
-app.config['SESSION_COOKIE_SAMESITE'] = 'None'
-app.config['SESSION_COOKIE_SECURE'] = True
-
-CORS(app, resources={r"/*": {"origins": [
-    "https://mature-grub-climbing.ngrok-free.app"
-]}}, supports_credentials=True)
-
-app.register_blueprint(user_bp)
-app.register_blueprint(farm_bp)
-app.register_blueprint(post_bp)
-app.register_blueprint(crop_bp)
-app.register_blueprint(admin_bp)
-app.register_blueprint(weather_bp)
-app.register_blueprint(product_bp)
-app.register_blueprint(chart_bp)
-app.register_blueprint(greenhouse_bp, url_prefix='/api/greenhouses')
-app.register_blueprint(group_bp)
-app.register_blueprint(notification_bp)
-
+# DB 연결 함수
 def get_db_connection():
     try:
         return pymysql.connect(**DB_CONFIG)
     except pymysql.MySQLError as e:
         print(f"DB 연결 실패: {e}")
         return None
+
+# Flask 앱 설정
+app = Flask(__name__)
+app.secret_key = 'your_secret_key'  # 세션 보안 키
+
+# CORS 허용 (React 연결)
+CORS(app,
+     resources={r"/*": {"origins": "https://mature-grub-climbing.ngrok-free.app"}},
+     supports_credentials=True)
+
+# 블루프린트 등록
+app.register_blueprint(user_bp)
+app.register_blueprint(farm_bp)  # URL prefix 제거
+app.register_blueprint(post_bp)
+app.register_blueprint(crop_bp)
+app.register_blueprint(admin_bp)
+app.register_blueprint(weather_bp)
+app.register_blueprint(product_bp)
+app.register_blueprint(chart_bp)
+
+app.register_blueprint(greenhouse_bp, url_prefix='/api/greenhouses')
+app.register_blueprint(notification_bp)
+app.register_blueprint(sensor_bp)
 
 @app.route('/')
 def home():

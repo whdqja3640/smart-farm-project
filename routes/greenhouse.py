@@ -4,6 +4,8 @@ from flask import Blueprint, request, jsonify, session, render_template
 import pymysql
 import json
 from utils.database import get_db_connection
+import requests
+
 
 greenhouse_bp = Blueprint('greenhouse', __name__)
 
@@ -50,7 +52,8 @@ def save_crop_groups(greenhouse_id, grid_data, conn):
     row_groups = find_row_groups(grid_data)
     col_groups = find_col_groups(grid_data)
 
-    if len(row_groups) >= len(col_groups):
+    # ✅ 첫 번째 행의 값이 모두 같으면 가로 병합, 아니면 세로 병합
+    if all(x == grid_data[0][0] for x in grid_data[0]):
         selected_groups = row_groups
         is_horizontal = True
     else:
@@ -255,3 +258,68 @@ def get_grid_data():
         'num_cols': greenhouse['num_cols'],
         'grid_data': json.loads(greenhouse['grid_data'])
     })
+
+@greenhouse_bp.route('/<int:greenhouse_id>/groups', methods=['GET'])
+def get_crop_groups(greenhouse_id):
+    conn = get_db_connection()
+    cur = conn.cursor(pymysql.cursors.DictCursor)
+    cur.execute("SELECT id, group_cells, crop_type, is_horizontal, harvest_amount, total_amount FROM crop_groups WHERE greenhouse_id = %s", (greenhouse_id,))
+    groups = cur.fetchall()
+    conn.close()
+    axis = None
+    if groups:
+        axis = 'row' if groups[0]['is_horizontal'] else 'col'
+    for g in groups:
+        if isinstance(g['group_cells'], str):
+            try:
+                g['group_cells'] = json.loads(g['group_cells'])
+            except Exception:
+                g['group_cells'] = []
+    groups = [g for g in groups if isinstance(g, dict) and 'group_cells' in g]
+    return jsonify({'groups': groups, 'axis': axis})
+
+
+
+# --------------------------
+# 촬영 명령 전송
+# --------------------------
+RASPBERRY_PI_IP = "http://192.168.137.9:5002"  # Pi의 Flask 서버 주소
+
+@greenhouse_bp.route('/crop_groups/read', methods=['POST'])
+def crop_groups_read():
+    try:
+        data = request.get_json()
+        group_id = data.get('group_id')
+        iot_id = data.get('iot_id')
+
+        if not group_id or not iot_id:
+            return jsonify({'message': '필수 정보가 누락되었습니다.'}), 400
+
+        # ✅ DB 연결 및 업데이트 수행
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE crop_groups SET is_read = TRUE WHERE id = %s", (group_id,))
+        conn.commit()  # 🔥 먼저 커밋하여 트랜잭션 락 해제
+        conn.close()
+
+        # ✅ IoT 명령 전송은 별도로 실행
+        try:
+            res = requests.post(
+                f"{RASPBERRY_PI_IP}/run-pi-script",
+                json={"group_id": group_id, "iot_id": iot_id},
+                timeout=3  # 3초 안에 응답 없으면 실패 처리
+            )
+            res.raise_for_status()
+            return jsonify({'message': '📸 촬영 명령이 전송되었습니다!'}), 200
+
+        except Exception as iot_err:
+            print("❌ IoT 명령 전송 실패:", iot_err)
+            return jsonify({'message': 'DB는 성공했지만, IoT 촬영 명령 전송 실패'}), 502
+
+    except Exception as e:
+        print("❌ 촬영 명령 오류:", e)
+        return jsonify({'message': '서버 오류 발생'}), 500
+
+def send_iot_capture_command(iot_id, group_id):
+    # 실제 IoT 명령 전송 로직 작성
+    pass
